@@ -85,12 +85,12 @@ canonifyurls = true
   name = "Archives"
   pre = "<i class=\"sidebar-button-icon fas fa-lg fa-archive\" aria-hidden=\"true\"></i>"
   url = "/archives"
-[[menu.main]]
-  weight = 5
-  identifier = "about"
-  name = "About"
-  pre = "<i class=\"sidebar-button-icon fas fa-lg fa-question\" aria-hidden=\"true\"></i>"
-  url = "/#about"
+#[[menu.main]]
+#  weight = 5
+#  identifier = "about"
+#  name = "About"
+#  pre = "<i class=\"sidebar-button-icon fas fa-lg fa-question\" aria-hidden=\"true\"></i>"
+#  url = "/#about"
 
 [[menu.links]]
   weight = 1
@@ -98,12 +98,12 @@ canonifyurls = true
   name = "GitHub"
   pre = "<i class=\"sidebar-button-icon fab fa-lg fa-github\" aria-hidden=\"true\"></i>"
   url = "https://github.com/eduardoanjos15"
-#[[menu.links]]
-#  weight = 2
-#  identifier = "stackoverflow"
-#  name = "Stack Overflow"
-#  pre = "<i class=\"sidebar-button-icon fab fa-lg fa-stack-overflow\" aria-hidden=\"true\"></i>"
-#  url = "https://stackoverflow.com/users/636472/kakawait"
+[[menu.links]]
+  weight = 2
+  identifier = "Linkedin"
+  name = "Linkedin"
+  pre = "<i class=\"sidebar-button-icon fab fa-lg fa-linkedin\" aria-hidden=\"true\"></i>"
+  url = "https://www.linkedin.com/in/eduardo-jeremias-dos-anjos-73a702187/"
 
 #[[menu.misc]]
 #  weight = 1
@@ -185,7 +185,7 @@ canonifyurls = true
   # Current image is on AWS S3 and delivered by AWS CloudFront.
   # Otherwise put your image, for example `cover.jpg` in folder `static/images/`,
   # and use relative url : `images/cover.jpg`
-  coverImage = "images/wallpaper.png"
+  coverImage = "images/cover.jpg"
 
   # Display an image gallery at the end of a post which have photos variables (false: disabled, true: enabled)
   imageGallery = true
@@ -292,15 +292,15 @@ canonifyurls = true
   # Comment and uncomment to enable or disable sharing options
   # If you wanna add a sharing option, read user documentation :
   # Tranquilpeak configuration > Theme configuration > sharing-options
-  [[params.sharingOptions]]
-    name = "Facebook"
-    icon = "fab fa-facebook-square"
-    url = "https://www.facebook.com/sharer/sharer.php?u=%s"
+#  [[params.sharingOptions]]
+#    name = "Facebook"
+#    icon = "fab fa-facebook-square"
+#    url = "https://www.facebook.com/sharer/sharer.php?u=%s"
 
-  [[params.sharingOptions]]
-    name = "Twitter"
-    icon = "fab fa-twitter"
-    url = "https://twitter.com/intent/tweet?text=%s"
+#  [[params.sharingOptions]]
+#    name = "Twitter"
+#    icon = "fab fa-twitter"
+#    url = "https://twitter.com/intent/tweet?text=%s"
 
 
 #  [[params.sharingOptions]]
@@ -308,10 +308,10 @@ canonifyurls = true
 #    icon = "fab fa-whatsapp"
 #    url = "https://wa.me/?text=%s"
 
-  [[params.sharingOptions]]
-    name = "Linkedin"
-    icon = "fab fa-linkedin"
-    url = "https://www.linkedin.com/sharing/share-offsite/?url=%s"
+#  [[params.sharingOptions]]
+#    name = "Linkedin"
+#    icon = "fab fa-linkedin"
+#    url = "https://www.linkedin.com/sharing/share-offsite/?url=%s"
 
 #  [[params.sharingOptions]]
 #    name = "Reddit"
