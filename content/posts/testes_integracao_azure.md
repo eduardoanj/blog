@@ -30,11 +30,11 @@ Dados mockados são fortemente reduzidos em testes de integração, as informaç
 
 ## Como executar o banco de dados dos testes de integração?
 
-Vamos utilizar um arquivo docker-compose.yaml para executar a imagem docker do nosso PostgreSQL, optei por utilizar o docker-compose para ficar mais facil adicionar novas imagens futuramente caso os testes precisem de mais cenários.
+Vamos utilizar um arquivo docker-compose.yaml para executar a imagem Docker do nosso PostgreSQL, optei por utilizar o docker-compose para ficar mais facil adicionar novas imagens futuramente caso os testes precisem de mais cenários.
 
-Primeiramente precisamos do docker instalado na maquina, maquinas windows podem rodar docker através do app [Docker Desktop](https://www.docker.com/products/docker-desktop/) ou através do wsl2, que pode ser instalado seguindo os passos [deste tutorial](https://docs.docker.com/desktop/windows/wsl/)  **pode ser que seja necessário instalar o plugin docker-compose separadamente.**
+Primeiramente precisamos do Docker instalado na maquina, maquinas windows podem rodar docker através do app [Docker Desktop](https://www.docker.com/products/docker-desktop/) ou através do wsl2, que pode ser instalado seguindo os passos [deste tutorial](https://docs.docker.com/desktop/windows/wsl/)  **pode ser que seja necessário instalar o plugin docker-compose separadamente.**
 
-Será necessário criar um arquivo docker-compose.yaml que será necessário para executar o nosso PostgreSQL em um container docker como no exemplo abaixo.
+Será necessário criar um arquivo docker-compose.yaml que será necessário para executar o nosso PostgreSQL em um container Docker como no exemplo abaixo.
 
 {{< codeblock "docker-compose.yaml" >}}
 version: '3.9'
@@ -58,7 +58,7 @@ volumes:
   postgres:
 {{< /codeblock >}}
 
-Após o docker instalado é necessário executa-lo com o comando.
+Após o Docker instalado é necessário abrir o terminal do ubuntu e executar o comando:
 
 {{< codeblock "bash" >}}
 $ sudo service docker start
@@ -71,7 +71,7 @@ $ docker compose up -d
 
 ![wsl2](/img/composeUp.jpg)
 
-Agora o nosso PostgreSQL já está sendo executado em um container docker, é possivel ver quais containers estão sendo executados através do comando.
+Agora o nosso PostgreSQL já está sendo executado em um container Docker, é possível ver quais containers estão sendo executados através do comando.
 
 {{< codeblock "bash" >}}
 $ docker ps
