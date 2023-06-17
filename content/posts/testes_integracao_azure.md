@@ -1,5 +1,5 @@
 ---
-title: "Como Criar, executar e configurar testes de integração em .NET utilizando Docker, PostgreSQL e Azure DevOps"
+title: "Como criar, configurar e executar testes de integração em .NET utilizando Docker, PostgreSQL e Azure DevOps"
 date: 2023-06-17
 categories:
 - Tutoriais
