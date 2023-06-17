@@ -102,24 +102,24 @@ public abstract class IntegrationTestBase
 
     static IntegrationTestBase()
     {
-        var serviceCollection = TestServiceCollecionFactory.BuildIntegrationTestInfrastructure(
+        var serviceCollection = TestIntegrationServiceCollectionFactory.BuildIntegrationTestInfrastructure(
             DatabaseName,
             () => IntegrationTestClock
         );
 
-        TestDatabaseManager.RebuildDatabase(GetServiceProvider(serviceCollection));
+        TestIntegrationDatabaseManager.RebuildIntegrationDatabase(GetServiceProvider(serviceCollection));
     }
 
     protected IntegrationTestBase()
     {
-        var serviceCollection = TestServiceCollecionFactory.BuildIntegrationTestInfrastructure(
+        var serviceCollection = TestIntegrationServiceCollectionFactory.BuildIntegrationTestInfrastructure(
             DatabaseName,
             () => IntegrationTestClock
         );
         _serviceProvider = new Lazy<IServiceProvider>(() => GetServiceProvider(serviceCollection));
 
-        TestDatabaseManager.TruncateAllTables(GetServiceProvider(serviceCollection));
-        IntegrationTestClock = TestServiceCollecionFactory.BuildTestClock();
+        TestIntegrationDatabaseManager.TruncateAllDatabaseTables(GetServiceProvider(serviceCollection));
+        IntegrationTestClock = TestIntegrationServiceCollectionFactory.BuildIntegrationTestClock();
     }
     
     protected static IntegrationTestClock IntegrationTestClock { get; private set; }
@@ -153,6 +153,86 @@ public abstract class IntegrationTestBase
         var scope = _serviceProvider.Value.CreateScope();
         var databaseContext = scope.ServiceProvider.GetService<DatabaseContext>();
         return await databaseContext!.FindAsync<TEntity>(id);
+    }
+}
+{{< /codeblock >}}
+
+A classe TestIntegrationServiceCollectionFactory é a responsável por criar uma lógica de injeção de dependência para testes, ela é responsável tambem por criar um IntegrationTestClock para substituir o Datetime.now() da aplicação para ser sempre um DateTime estático.
+
+{{< codeblock "TestIntegrationServiceCollectionFactory.cs" "cs" "http://underscorejs.org/#compact" >}}
+using System.Globalization;
+using FluentAssertions.Extensions;
+using Microsoft.Extensions.DependencyInjection;
+using Registration.UserRegistrationEnterpriseExample.Application;
+using Registration.UserRegistrationEnterpriseExample.Domain;
+using Registration.UserRegistrationEnterpriseExample.Infrastructure;
+using Registration.UserRegistrationEnterpriseExample.Tests.TestHelpers;
+
+namespace Registration.UserRegistrationEnterpriseExample.Tests.Common;
+
+public static class TestIntegrationServiceCollectionFactory
+{
+    public static IServiceCollection BuildIntegrationTestInfrastructure(string testDatabaseName,
+        Func<IntegrationTestClock> getIntegrationTestClock)
+    {
+        var services = new ServiceCollection();
+        services.AddIntegrationTestDatabase(testDatabaseName);
+        services.AddIntegrationTestLogs();
+        services.AddDomain();
+        services.AddApplication();
+        services.AddInfrastructure();
+        services.AddIntegrationTestClock(getIntegrationTestClock);
+
+        return services;
+    }
+
+    public static IntegrationTestClock BuildIntegrationTestClock()
+    {
+        return new IntegrationTestClock(2.September(2020).At(20.Hours(20.Minutes(40.Seconds()))));
+    }
+}
+{{< /codeblock >}}
+
+A classe TestIntegrationDatabaseManager é a grande responsável por fazer o "ReBuild" da database de testes e realizar o Truncate das tabelas a cada teste realizado.
+
+{{< codeblock "TestIntegrationServiceCollecionFactory.cs" "cs" "http://underscorejs.org/#compact" >}}
+using System.Collections;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Registration.UserRegistrationEnterpriseExample.Infrastructure.PostgreSql;
+using Registration.UserRegistrationEnterpriseExample.Infrastructure.PostgreSql.Common;
+using Registration.UserRegistrationEnterpriseExample.Infrastructure.PostgreSql.Mappings;
+
+namespace Registration.UserRegistrationEnterpriseExample.Tests;
+
+public static class TestIntegrationDatabaseManager
+{
+    public static void RebuildIntegrationDatabase(IServiceProvider serviceProvider)
+    {
+        var databaseContext = serviceProvider.GetService<DatabaseContext>();
+        databaseContext!.Database.EnsureDeleted();
+        databaseContext.Database.Migrate();
+    }
+
+    public static void TruncateAllDatabaseTables(IServiceProvider serviceProvider)
+    {
+        var databaseContext = serviceProvider.GetService<DatabaseContext>();
+
+        var tableNames = GetTableNames();
+        foreach (var tableName in tableNames)
+            databaseContext!.Database.ExecuteSqlRaw($"TRUNCATE TABLE {tableName} CASCADE");
+    }
+
+    private static IEnumerable GetTableNames()
+    {
+        var tableNames = typeof(UserMapping).Assembly
+            .GetTypes()
+            .Where(x => typeof(IBaseMapping).IsAssignableFrom(x))
+            .Where(x => x.IsAbstract is false)
+            .Select(x => (IBaseMapping) Activator.CreateInstance(x))
+            .Select(x => x!.TableName)
+            .ToList();
+        return tableNames;
     }
 }
 {{< /codeblock >}}
