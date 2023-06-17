@@ -11,8 +11,8 @@ tags:
 - DevOps
 autoThumbnailImage: false
 thumbnailImagePosition: "top"
-thumbnailImage: /img/CDockerAzure.jpg
-coverImage: /img/fotin.jpg
+thumbnailImage: /images/CDockerAzure.jpg
+coverImage: /images/fotin.jpg
 metaAlignment: center
 coverMeta: out
 ---
