@@ -79,9 +79,87 @@ $ docker ps
 
 ![wsl2](/img/containersEmExecucao.jpg)
 
+## Arquitetura
+
+Em nosso projeto eu utilizei arquitetura limpa (Clean Architecture) com DDD para ter uma separação de camadas e responsabilidades, nosso **Domain** é onde estão localizadas nossas regras de negocio e tudo que se refere ao domínio como Entidades etc, nosso **Application** é onde se refere à aplicação e é a camada que tem acesso à infra, a parte da **Infrastructure** é onde deixamos códigos relacionados à infra, como comunicação com banco de dados e brokers, e por fim a **Presentation**, que é onde estão nossos controllers e tudo o que tem de relacionado à comunicação externa, como segue nas imagens a seguir.
+
+Fluxo projetos:
+![CleanArchitectureFluxo](/img/CleanArchitectureFluxo.png)
+
+Projetos:
+![CleanArchitecture](/img/CleanArchitecture.jpg)
+
+## Cenário de teste
+
+Nosso cenário de teste consiste em salvar uma entidade USER no banco e verificar se realmente foi salva.
+{{< codeblock "User.cs" "cs" "http://underscorejs.org/#compact" >}}
+namespace Registration.UserRegistrationEnterpriseExample.Domain.Entidades;
+
+public class User 
+{
+    public User(int userNumber)
+    {
+        UserNumber = userNumber;
+    }
+    
+    public int UserNumber { get; set; }
+    public string Document { get; set; }
+}
+{{< /codeblock >}}
+
+Nossa request veio do Presentation para o Application utiliza-la, salva-la como a entidade User no banco através do método handle.
+{{< codeblock "SaveUserRequest.cs" "cs" "http://underscorejs.org/#compact" >}}
+using MediatR;
+
+namespace Registration.UserRegistrationEnterpriseExample.Application.Users.PersistirUser;
+
+public class SaveUserRequest : IRequest<Guid>
+{
+    public DateTime TimestampUtc { get; set; }
+    public int UserNumber { get; set; }
+    public string Document { get; set; }
+}
+{{< /codeblock >}}
+
+{{< codeblock "SaveUserRequestHandler.cs" "cs" "http://underscorejs.org/#compact" >}}
+using MediatR;
+using Registration.UserRegistrationEnterpriseExample.Application.Common.Exceptions;
+using Registration.UserRegistrationEnterpriseExample.Application.Common.Extensions;
+using Registration.UserRegistrationEnterpriseExample.Application.Common.Interfaces;
+using Registration.UserRegistrationEnterpriseExample.Domain.Entidades;
+
+namespace Registration.UserRegistrationEnterpriseExample.Application.Users.PersistirUser;
+
+internal class SaveUserRequestHandler : IRequestHandler<SaveUserRequest, Guid>
+{
+    private readonly IUsers _users;
+
+    public SaveUserRequestHandler(IUsers users)
+    {
+        _users = users;
+    }
+
+    public async Task<Guid> Handle(SaveUserRequest request, CancellationToken cancellationToken)
+    {
+        var user = await _users.SelecionarPorChave(request.UserNumber);
+
+        if (user == null)
+            user = new User(request.UserNumber);
+        else if (request.TimestampUtc.IsOlderThan(user.OriginTimestampUtc))
+            throw new OldEventException("UserRecebido", request.UserNumber);
+        
+        user.OriginTimestampUtc = request.TimestampUtc;
+        user.Document = request.Document;
+
+        await _users.InserirOuAtualizar(user);
+        return user.Id;
+    }
+}
+{{< /codeblock >}}
+
 ## Iniciando nossa Infraestrutura de testes
 
-Inicialmente precisamos de uma classe que, sempre quando um teste for executado, esta classe suba uma base para testes e de um "TRUNCATE" para limpar a base, este truncate é necessário para que não fiquem registros que possam atrapalhar no resultado do teste. 
+Inicialmente precisamos de uma classe que, sempre quando um teste for executado, esta classe suba uma base para testes e de um "TRUNCATE" para limpar a base, este truncate é necessário para que não fiquem registros que possam atrapalhar no resultado do teste.
 
 {{< codeblock "IntegrationTestBase.cs" "cs" "http://underscorejs.org/#compact" >}}
 using System.Diagnostics;
@@ -188,12 +266,12 @@ public static class TestIntegrationServiceCollectionFactory
 
     public static IntegrationTestClock BuildIntegrationTestClock()
     {
-        return new IntegrationTestClock(2.September(2020).At(20.Hours(20.Minutes(40.Seconds()))));
+        return new IntegrationTestClock(3.September(2019).At(10.Hours(21.Minutes(45.Seconds()))));
     }
 }
 {{< /codeblock >}}
 
-A classe TestIntegrationDatabaseManager é a grande responsável por fazer o "ReBuild" da database de testes e realizar o Truncate das tabelas a cada teste realizado.
+A classe TestIntegrationDatabaseManager é a grande responsável por fazer o "ReBuild" da database de testes e realizar o Truncate das tabelas a cada teste realizado, O Truncate é o responsável por limpar a base antes da execução do teste de integração.
 
 {{< codeblock "TestIntegrationServiceCollecionFactory.cs" "cs" "http://underscorejs.org/#compact" >}}
 using System.Collections;
@@ -236,3 +314,82 @@ public static class TestIntegrationDatabaseManager
     }
 }
 {{< /codeblock >}}
+
+## Nossos testes de integração
+
+Nossos testes de integração possuem 3 cenários, o primeiro deve inserir um User no banco, o segundo deve atualizar um usuário já inserido (um evento de atualização), e o terceiro deve lançar erro caso o usuário for um usuário antigo (sem ser um evento de atualização), os testes usam o metodo Handle genérico fornecido pela IntegrationTestBase.cs para executar a request, o decorator **Collection** foi atribuido para o parâmetro **Sequential** para executar as classes de teste sequancialmente.
+{{< codeblock "SaveUserRequestTests.cs" "cs" "http://underscorejs.org/#compact" >}}
+using FluentAssertions;
+using FluentAssertions.Extensions;
+using Microsoft.EntityFrameworkCore;
+using Registration.UserRegistrationEnterpriseExample.Application.Users.PersistirUser;
+using Registration.UserRegistrationEnterpriseExample.Application.Common.Exceptions;
+using Registration.UserRegistrationEnterpriseExample.Domain.Entidades;
+using Registration.UserRegistrationEnterpriseExample.Tests.Builders.Application.Users.PersistirUser;
+using Xunit;
+
+namespace Registration.UserRegistrationEnterpriseExample.Tests.Application.Users.PersistirUser;
+
+[Collection("Sequential")]
+public class SaveUserRequestTests : IntegrationTestBase
+{
+    private readonly SaveUserRequest _userRequest;
+
+    public SaveUserRequestTests()
+    {
+        _userRequest = new SaveUserRequestBuilder()
+            .WithUserNumber(11111)
+            .WithDocument("6768757576")
+            .Build();
+    }
+
+    [Fact]
+    public async void It_should_insert_a_new_user()
+    {
+        var id = await Handle<SaveUserRequest, Guid>(_userRequest);
+
+        id.Should().NotBeEmpty();
+        var user = await GetByIdAsync<User>(id);
+        user.UserNumber.Should().Be(_userRequest.UserNumber);
+        user.OriginTimestampUtc.Should().Be(_userRequest.TimestampUtc);
+        user.Document.Should().Be(_userRequest.Document);
+    }
+    
+    [Fact]
+    public async void It_should_update_a_user()
+    {
+        var id = await Handle<SaveUserRequest, Guid>(_userRequest);
+        IntegrationTestClock.AdvanceBy(1.Minutes());
+        _userRequest.TimestampUtc = IntegrationTestClock.Now;
+        _userRequest.Document = "487557418666";
+
+        var secondId = await Handle<SaveUserRequest, Guid>(_userRequest);
+
+        var usersDbSet = GetTable<User>();
+        var users = await usersDbSet.ToListAsync();
+        users.Should().HaveCount(1);
+        secondId.Should().Be(id);
+        var user = await GetByIdAsync<User>(id);
+        user.OriginTimestampUtc.Should().Be(_userRequest.TimestampUtc);
+        user.Document.Should().Be("487557418666");
+    }
+
+    [Fact]
+    public async void It_should_ignore_a_user_with_an_old_timestamp()
+    {
+        await Handle<SaveUserRequest, Guid>(_userRequest);
+        _userRequest.TimestampUtc -= 1.Minutes();
+        IntegrationTestClock.AdvanceBy(-1.Minutes());
+
+        var handleCommand = async () => { await Handle<SaveUserRequest, Guid>(_userRequest); };
+        
+        await handleCommand.Should().ThrowAsync<OldEventException>();
+    }
+}
+{{< /codeblock >}}
+
+Com isso nossos testes de integração passarão com sucesso utilizando o nosso banco de testes. 
+
+![tests](/img/tests.jpg)
+
+## Como rodar os testes de integração na pipeline CI do Azure DevOps com o nosso banco de testes?
