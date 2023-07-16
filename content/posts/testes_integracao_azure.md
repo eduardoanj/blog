@@ -1,6 +1,6 @@
 ---
 title: "Como criar, configurar e executar testes de integração em .NET utilizando Docker, PostgreSQL e Azure DevOps"
-date: 2023-06-17
+date: 2023-07-16
 categories:
 - Tutoriais
 tags:
@@ -9,7 +9,7 @@ tags:
 - Docker
 - Azure
 - DevOps
-autoThumbnailImage: false
+autoThumbnailImage: true
 thumbnailImagePosition: "top"
 thumbnailImage: https://raw.githubusercontent.com/eduardoanj/blog/main/static/images/CDockerAzure.jpg
 coverImage: https://raw.githubusercontent.com/eduardoanj/blog/main/static/images/fotin.jpg
