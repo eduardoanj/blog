@@ -241,70 +241,6 @@ public abstract class IntegrationTestBase
 
 A classe TestIntegrationServiceCollectionFactory é a responsável por criar uma lógica de injeção de dependência para testes, ela é responsável tambem por criar um IntegrationTestClock para substituir o Datetime.now() da aplicação para ser sempre um DateTime estático. O IntegrationTestClock é extremamente importante para assegurar a acertividade dos testes, quando falamos de testes de integração o tempo é algo que nunca deve mudar, o nosso IntegrationTestClock basicamente "Mocka" a nossa interface de tempo IClock e faz com que datas utilizadas no fluxo fiquem imutáveis.
 
-{{< codeblock "IntegrationTestClock.cs" "cs" "http://underscorejs.org/#compact" >}}
-using NSubstitute;
-using Registration.UserRegistrationEnterpriseExample.Domain.Common;
-
-namespace Registration.UserRegistrationEnterpriseExample.Tests.TestHelpers;
-
-public class IntegrationTestClock : IClock
-{
-    private readonly IClock _mockedClock;
-
-    public IntegrationTestClock(DateTime seedDateTime)
-    {
-        _mockedClock = Substitute.For<IClock>();
-        SetIntegrationClock(seedDateTime);
-    }
-
-    public DateTime Now => _mockedClock.Now;
-
-    public void AdvanceBy(TimeSpan timeSpan)
-    {
-        SetIntegrationClock(_mockedClock.Now + timeSpan);
-    }
-
-    private void SetIntegrationClock(DateTime dateTime)
-    {
-        _mockedClock.Now.Returns(dateTime);
-    }
-}
-{{< /codeblock >}}
-
-{{< codeblock "IClock.cs" "cs" "http://underscorejs.org/#compact" >}}
-namespace Registration.UserRegistrationEnterpriseExample.Domain.Common;
-
-public interface IClock
-{
-    DateTime Now { get; }
-}
-{{< /codeblock >}}
-
-A Classe SystemClock é usada em todo o código para atribuir datas, caso não seja substituido no teste, o teste que faz asserts com datas falhará a cada nova execução (pois sempre terá um datetime diferente). Por conta disso o nosso IntegrationTestClock é tão importante, pois faz com que toda a execução tenha o mesmo datetime.
-{{< codeblock "SystemClock.cs" "cs" "http://underscorejs.org/#compact" >}}
-using Registration.UserRegistrationEnterpriseExample.Domain.Common;
-using TimeZoneConverter;
-
-namespace Registration.UserRegistrationEnterpriseExample.Infrastructure.DateAndTime;
-
-public class SystemClock : IClock
-{
-    public DateTime Now => DateTime.UtcNow;
-    public DateTime Today => DateTime.UtcNow.Date;
-
-    public DateTime NowTZ(TimeZoneInfo timeZoneInfo)
-    {
-        return TimeZoneInfo.ConvertTimeFromUtc(Now, timeZoneInfo);
-    }
-
-    public DateTime NowTZ(string timeZone)
-    {
-        var timeZoneInfo = TZConvert.GetTimeZoneInfo(timeZone);
-        return NowTZ(timeZoneInfo);
-    }
-}
-{{< /codeblock >}}
-
 {{< codeblock "TestIntegrationServiceCollectionFactory.cs" "cs" "http://underscorejs.org/#compact" >}}
 using System.Globalization;
 using FluentAssertions.Extensions;
@@ -335,6 +271,71 @@ public static class TestIntegrationServiceCollectionFactory
     public static IntegrationTestClock BuildIntegrationTestClock()
     {
         return new IntegrationTestClock(3.September(2019).At(10.Hours(21.Minutes(45.Seconds()))));
+    }
+}
+{{< /codeblock >}}
+
+{{< codeblock "IntegrationTestClock.cs" "cs" "http://underscorejs.org/#compact" >}}
+using NSubstitute;
+using Registration.UserRegistrationEnterpriseExample.Domain.Common;
+
+namespace Registration.UserRegistrationEnterpriseExample.Tests.TestHelpers;
+
+public class IntegrationTestClock : IClock
+{
+    private readonly IClock _mockedClock;
+
+    public IntegrationTestClock(DateTime seedDateTime)
+    {
+        _mockedClock = Substitute.For<IClock>();
+        SetIntegrationClock(seedDateTime);
+    }
+
+    public DateTime Now => _mockedClock.Now;
+
+    public void AdvanceBy(TimeSpan timeSpan)
+    {
+        SetIntegrationClock(_mockedClock.Now + timeSpan);
+    }
+
+    private void SetIntegrationClock(DateTime dateTime)
+    {
+        _mockedClock.Now.Returns(dateTime);
+    }
+}
+{{< /codeblock >}}
+
+Interface a ser "Mockada" pelo IntegrationTestClock
+{{< codeblock "IClock.cs" "cs" "http://underscorejs.org/#compact" >}}
+namespace Registration.UserRegistrationEnterpriseExample.Domain.Common;
+
+public interface IClock
+{
+    DateTime Now { get; }
+}
+{{< /codeblock >}}
+
+A Classe SystemClock é usada em todo o código para atribuir datas, caso não seja substituido no teste, o teste que faz asserts com datas falhará a cada nova execução (pois sempre terá um datetime diferente). Por conta disso o nosso IntegrationTestClock é tão importante, pois faz com que toda a execução tenha o mesmo datetime.
+{{< codeblock "SystemClock.cs" "cs" "http://underscorejs.org/#compact" >}}
+using Registration.UserRegistrationEnterpriseExample.Domain.Common;
+using TimeZoneConverter;
+
+namespace Registration.UserRegistrationEnterpriseExample.Infrastructure.DateAndTime;
+
+public class SystemClock : IClock
+{
+    public DateTime Now => DateTime.UtcNow;
+    public DateTime Today => DateTime.UtcNow.Date;
+
+    public DateTime NowTZ(TimeZoneInfo timeZoneInfo)
+    {
+        return TimeZoneInfo.ConvertTimeFromUtc(Now, timeZoneInfo);
+    }
+
+    public DateTime NowTZ(string timeZone)
+    {
+        var timeZoneInfo = TZConvert.GetTimeZoneInfo(timeZone);
+        return NowTZ(timeZoneInfo);
     }
 }
 {{< /codeblock >}}
