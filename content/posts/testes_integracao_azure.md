@@ -16,7 +16,7 @@ coverImage: https://raw.githubusercontent.com/eduardoanj/blog/main/static/images
 metaAlignment: center
 coverMeta: out
 ---
-Criar e executar testes de integração pode ser algo complexo dependendo da infraestrutura do seu projeto, neste tutorial vou mostrar todo o caminho para criar testes de integração úteis e confiáveis desde a sua configuração básica até a sua execução em pipelines Azure.
+Criar e executar testes de integração pode ser algo complexo dependendo da infraestrutura do seu projeto. Neste tutorial vou mostrar todo o caminho para criar testes de integração úteis e confiáveis desde a sua configuração básica até a sua execução em pipelines Azure.
 <!--more-->
 
 ## Como funciona a Infraestrutura de testes de integração?
@@ -26,15 +26,15 @@ O Primeiro passo para criar testes de integração seria estruturar uma infra de
 1. Precisamos ter uma infraestrutura que crie um banco de dados independente do banco da aplicação.
 2. Os dados salvos em um teste não deve influenciar os resultados e os dados salvos em outro teste, portanto a base deve ser limpa sempre que um teste for executado. 
 
-Dados mockados são fortemente reduzidos em testes de integração, as informações do testes serão realmente salvas em nosso banco de teste, os asserts serão com dados retirados de nosso banco que realmente passaram em nosso fluxo de teste, mocks só serão utilizados em casos de dados que podem mudar dependendo da execução, como datas por exemplo. 
+Dados mockados são fortemente reduzidos em testes de integração, as informações do testes serão realmente salvas em nosso banco de teste. Os asserts serão com dados retirados de nosso banco que realmente passaram em nosso fluxo de teste. Mocks só serão utilizados em casos de dados que podem mudar dependendo da execução, como datas por exemplo. 
 
 ## Como executar o banco de dados dos testes de integração?
 
-Vamos utilizar um arquivo docker-compose.yaml para executar a imagem Docker do nosso PostgreSQL, optei por utilizar o docker-compose para ficar mais facil adicionar novas imagens futuramente caso os testes precisem de mais cenários.
+Vamos utilizar um arquivo docker-compose.yaml para executar a imagem Docker do nosso PostgreSQL. Optei por utilizar o docker-compose para ficar mais facil adicionar novas imagens futuramente caso os testes precisem de mais cenários.
 
 Primeiramente precisamos do Docker instalado na maquina, maquinas windows podem rodar docker através do app [Docker Desktop](https://www.docker.com/products/docker-desktop/) ou através do wsl2, que pode ser instalado seguindo os passos [deste tutorial](https://docs.docker.com/desktop/windows/wsl/)  **pode ser que seja necessário instalar o plugin docker-compose separadamente.**
 
-Será necessário criar um arquivo docker-compose.yaml que será necessário para executar o nosso PostgreSQL em um container Docker como no exemplo abaixo.
+Será necessário criar um arquivo docker-compose.yaml para executar o nosso PostgreSQL em um container Docker como no exemplo abaixo.
 
 {{< codeblock "docker-compose.yaml" >}}
 version: '3.9'
@@ -58,7 +58,7 @@ volumes:
   postgres:
 {{< /codeblock >}}
 
-Após o Docker instalado é necessário abrir o terminal do ubuntu e executar o comando:
+Após o Docker instalado é necessário abrir o terminal do ubuntu (wsl2) e executar o comando:
 
 {{< codeblock "bash" >}}
 $ sudo service docker start
@@ -202,12 +202,16 @@ public abstract class IntegrationTestBase
     
     protected static IntegrationTestClock IntegrationTestClock { get; private set; }
 
+    // busca o ServiceProvider (Necessário para ter acesso a instâncias específicas injetadas no código) 
     public static IServiceProvider GetServiceProvider(IServiceCollection serviceCollection)
     {
         var defaultServiceProviderFactory = new DefaultServiceProviderFactory(new ServiceProviderOptions());
         return defaultServiceProviderFactory.CreateServiceProvider(serviceCollection);
     }
     
+    // Os métodos Handle, GetTable e GetByIdAsync são helpers de teste para fazer execuções ou insersões na database que auxiliem
+    // por exemplo: caso meu teste salve algum dado no banco e eu precise verificar se realmente foi salvo, eu posso utilizar o GetByIdAsync para buscar a
+    // entidade do banco pelo id e fazer os asserts
     [DebuggerStepThrough]
     protected Task<TResponse> Handle<TRequest, TResponse>(TRequest request)
         where TRequest : IRequest<TResponse>
@@ -235,7 +239,71 @@ public abstract class IntegrationTestBase
 }
 {{< /codeblock >}}
 
-A classe TestIntegrationServiceCollectionFactory é a responsável por criar uma lógica de injeção de dependência para testes, ela é responsável tambem por criar um IntegrationTestClock para substituir o Datetime.now() da aplicação para ser sempre um DateTime estático.
+A classe TestIntegrationServiceCollectionFactory é a responsável por criar uma lógica de injeção de dependência para testes, ela é responsável tambem por criar um IntegrationTestClock para substituir o Datetime.now() da aplicação para ser sempre um DateTime estático. O IntegrationTestClock é extremamente importante para assegurar a acertividade dos testes, quando falamos de testes de integração o tempo é algo que nunca deve mudar, o nosso IntegrationTestClock basicamente "Mocka" a nossa interface de tempo IClock e faz com que datas utilizadas no fluxo fiquem imutáveis.
+
+{{< codeblock "IntegrationTestClock.cs" "cs" "http://underscorejs.org/#compact" >}}
+using NSubstitute;
+using Registration.UserRegistrationEnterpriseExample.Domain.Common;
+
+namespace Registration.UserRegistrationEnterpriseExample.Tests.TestHelpers;
+
+public class IntegrationTestClock : IClock
+{
+    private readonly IClock _mockedClock;
+
+    public IntegrationTestClock(DateTime seedDateTime)
+    {
+        _mockedClock = Substitute.For<IClock>();
+        SetIntegrationClock(seedDateTime);
+    }
+
+    public DateTime Now => _mockedClock.Now;
+
+    public void AdvanceBy(TimeSpan timeSpan)
+    {
+        SetIntegrationClock(_mockedClock.Now + timeSpan);
+    }
+
+    private void SetIntegrationClock(DateTime dateTime)
+    {
+        _mockedClock.Now.Returns(dateTime);
+    }
+}
+{{< /codeblock >}}
+
+{{< codeblock "IClock.cs" "cs" "http://underscorejs.org/#compact" >}}
+namespace Registration.UserRegistrationEnterpriseExample.Domain.Common;
+
+public interface IClock
+{
+    DateTime Now { get; }
+}
+{{< /codeblock >}}
+
+A Classe SystemClock é usada em todo o código para atribuir datas, caso não seja substituido no teste, o teste que faz asserts com datas falhará a cada nova execução (pois sempre terá um datetime diferente). Por conta disso o nosso IntegrationTestClock é tão importante, pois faz com que toda a execução tenha o mesmo datetime.
+{{< codeblock "SystemClock.cs" "cs" "http://underscorejs.org/#compact" >}}
+using Registration.UserRegistrationEnterpriseExample.Domain.Common;
+using TimeZoneConverter;
+
+namespace Registration.UserRegistrationEnterpriseExample.Infrastructure.DateAndTime;
+
+public class SystemClock : IClock
+{
+    public DateTime Now => DateTime.UtcNow;
+    public DateTime Today => DateTime.UtcNow.Date;
+
+    public DateTime NowTZ(TimeZoneInfo timeZoneInfo)
+    {
+        return TimeZoneInfo.ConvertTimeFromUtc(Now, timeZoneInfo);
+    }
+
+    public DateTime NowTZ(string timeZone)
+    {
+        var timeZoneInfo = TZConvert.GetTimeZoneInfo(timeZone);
+        return NowTZ(timeZoneInfo);
+    }
+}
+{{< /codeblock >}}
 
 {{< codeblock "TestIntegrationServiceCollectionFactory.cs" "cs" "http://underscorejs.org/#compact" >}}
 using System.Globalization;
