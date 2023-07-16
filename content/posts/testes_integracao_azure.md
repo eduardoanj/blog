@@ -394,8 +394,8 @@ Com isso nossos testes de integração passarão com sucesso utilizando o nosso 
 
 ## Como rodar os testes de integração na pipeline CI do Azure DevOps com o nosso banco de testes?
 
-Inicialmente, para a execução dos testes na pipeline azure precisamos de um arquivo .yaml que terá os passos para a execução do teste pelo agente da pipeline azure
-por questão de organização devici separar esses passos em dois arquivos .yaml, o azure-pipelines.yaml, que terá os triggers e configurações iniciais, e o backend-build-and-test-stage.yaml que terá a execução dos testes em sí.
+Inicialmente, para a execução dos testes na pipeline azure precisamos de um arquivo .yaml que terá os passos para a execução do teste pelo agente da pipeline azure,
+por questão de organização decidi separar esses passos em dois arquivos .yaml, o azure-pipelines.yaml, que terá os triggers e configurações iniciais e o backend-build-and-test-stage.yaml que terá a execução dos testes em sí.
 
 {{< codeblock "azure-pipelines.yaml" >}}
 name: "$(Rev:r)"
