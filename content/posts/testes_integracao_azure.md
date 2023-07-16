@@ -354,6 +354,7 @@ namespace Registration.UserRegistrationEnterpriseExample.Tests;
 
 public static class TestIntegrationDatabaseManager
 {
+    // Faz o Rebuild de nossa database
     public static void RebuildIntegrationDatabase(IServiceProvider serviceProvider)
     {
         var databaseContext = serviceProvider.GetService<DatabaseContext>();
@@ -361,6 +362,7 @@ public static class TestIntegrationDatabaseManager
         databaseContext.Database.Migrate();
     }
 
+    // basicamente limpa todos os dados de todas as tabelas do nosso banco de testes
     public static void TruncateAllDatabaseTables(IServiceProvider serviceProvider)
     {
         var databaseContext = serviceProvider.GetService<DatabaseContext>();
@@ -370,6 +372,7 @@ public static class TestIntegrationDatabaseManager
             databaseContext!.Database.ExecuteSqlRaw($"TRUNCATE TABLE {tableName} CASCADE");
     }
 
+    // retorna um IEnumerable com os nomes de todas Tables existentes no nosso postgres mapeadas no código
     private static IEnumerable GetTableNames()
     {
         var tableNames = typeof(UserMapping).Assembly
@@ -399,6 +402,7 @@ using Xunit;
 
 namespace Registration.UserRegistrationEnterpriseExample.Tests.Application.Users.PersistirUser;
 
+// herdamos a nossa IntegrationTestBase e adicionamos o decorator Collection("Sequential") para executar os testes sequencialmente.
 [Collection("Sequential")]
 public class SaveUserRequestTests : IntegrationTestBase
 {
@@ -406,6 +410,7 @@ public class SaveUserRequestTests : IntegrationTestBase
 
     public SaveUserRequestTests()
     {
+        // utilizamos o design pattern builder para facilitar a criação do nosso objeto de request
         _userRequest = new SaveUserRequestBuilder()
             .WithUserNumber(11111)
             .WithDocument("6768757576")
