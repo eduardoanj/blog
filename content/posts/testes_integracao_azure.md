@@ -393,3 +393,122 @@ Com isso nossos testes de integração passarão com sucesso utilizando o nosso 
 ![tests](/img/tests.jpg)
 
 ## Como rodar os testes de integração na pipeline CI do Azure DevOps com o nosso banco de testes?
+
+Inicialmente, para a execução dos testes na pipeline azure precisamos de um arquivo .yaml que terá os passos para a execução do teste pelo agente da pipeline azure
+por questão de organização devici separar esses passos em dois arquivos .yaml, o azure-pipelines.yaml, que terá os triggers e configurações iniciais, e o backend-build-and-test-stage.yaml que terá a execução dos testes em sí.
+
+{{< codeblock "azure-pipelines.yaml" >}}
+name: "$(Rev:r)"
+
+variables:
+  - name: "MinhaVariavel"               ## Variaveis necessárias para o teste
+    value: "valorDaMinhaVariavel"
+
+trigger:                                ## O "Gatilho" com configurações de qual branchs especificas a pipeline deve ser executada
+  batch: true
+  branches:
+    include:
+      - "main"
+      - "release"
+      - "develop"
+      - "feature/*"
+      - "hotfix/*"
+      - "fix/*"
+  paths:
+    include:
+      - "$(WorkingDirectory)"           
+    exclude:                                ## Extensões de arquivos que devem ser ignorados no projeto
+      - "$(WorkingDirectory)/**/*.js"       
+      - "$(WorkingDirectory)/**/*.md"
+      - "$(WorkingDirectory)/**/*.py"
+
+stages:                          ## Configuração dos stages que são basicamente "passos" a serem executados pela pipeline (pode ser incluídos outros tipos de testes por exemplo)
+  - stage: "BackendBuildAndTest"
+    displayName: "Backend build and test"
+    dependsOn: []                 ## Adicionar dependências (por exemplo, o stage de testeBackend só pode ser executado quando o stage de testeFrontend estiver sido finalizado)
+    jobs:
+      - job: "BackendBuildAndTestJob"       ## nome do job específico
+        pool:
+          vmImage: "ubuntu-20.04"           ## Versão da vm linux que o teste será executado
+          demands:
+            - "vstest"
+          timeoutInMinutes: 10
+        steps:
+          - template: "backend-build-and-test-stage.yaml"               ## Introduzido o caminho para o nosso segundo arquivo onde os testes serão realizados 
+            parameters:                                                 ## Variáveis de ambiente "encaminhadas" para serem usadas no nosso template de testes
+              BuildNumber: "$(Build.BuildNumber)"
+              SolutionName: "$(SolutionName)"
+              WorkingDirectory: "$(WorkingDirectory)/backend"
+              ProjectPrefix: "$(ProjectPrefix)"
+              MinhaVariavel: "$(MinhaVariavel)"
+{{< /codeblock >}}
+
+Após nosso arquivo azure-pipelines.yaml finalizado, deveremos implementar nosso template, onde os testes de integração de fato serão executados.
+
+{{< codeblock "backend-build-and-test-stage.yaml" >}}
+parameters:                                                 ## Variáveis utilizadas nos testes, (recebidas do azure-pipelines.yaml ou novas necessárias para a execução dos testes)
+  BuildConfiguration: 'Debug'
+  BuildNumber: ''
+  SolutionName: ''
+  WorkingDirectory: ''
+  ProjectPrefix: ''
+  MinhaVariavel: ''
+
+steps:
+  - task: UseDotNet@2                                      ## Utilizada para definir a versão do SDK 
+    displayName: 'Use .NET sdk'
+    version: '6.x'                                         
+
+  - task: DotNetCoreCLI@2                                   ## Comado restore
+    displayName: 'dotnet restore'
+    inputs:
+      command: 'restore'
+      projects: '${{ parameters.WorkingDirectory }}/**/*.csproj'
+      feedsToUse: 'config'
+      nugetConfigPath: '${{ parameters.WorkingDirectory }}/NuGet.Config'
+
+  - task: DotNetCoreCLI@2                                   ## Utilizado para executar o comando de build
+    displayName: 'dotnet build'
+    inputs:
+      command: 'build'
+      projects: '${{ parameters.WorkingDirectory }}/**/*.csproj'
+      arguments: '--configuration ${{ parameters.BuildConfiguration }} --no-restore'
+
+  - task: DockerCompose@0                                   ## Utilizado para executar o container do nosso postgres na pipeline
+    displayName: 'Build and run PostgreSql container'
+    inputs:
+      containerregistrytype: 'Container Registry'
+      dockerComposeFile: '${{ parameters.WorkingDirectory }}/devops/docker/docker-compose.yaml'
+      dockerComposeCommand: 'up --detach'
+
+  - script: |                                               ## comandos para a execução dos testes de integração e criação do xml de coverage (necessário para o Sonar)
+      dotnet test ${{ parameters.WorkingDirectory }}/${{ parameters.SolutionName }}.sln --configuration ${{ parameters.BuildConfiguration }} --no-build --no-restore --logger trx /p:CollectCoverage=true /p:CoverletOutputFormat=opencover --collect:"XPlat Code Coverage"
+
+      mkdir ${{ parameters.WorkingDirectory }}/results
+
+      cp -f ${{ parameters.WorkingDirectory }}/tests/${{ parameters.ProjectPrefix }}.Tests/coverage.opencover.xml ${{ parameters.WorkingDirectory }}/results/coverage-integration-tests-opencover.xml
+      
+      dotnet tool install dotnet-reportgenerator-globaltool --tool-path .
+
+      ./reportgenerator "-reports:${{ parameters.WorkingDirectory }}/results/coverage-integration-tests-opencover.xml;${{ parameters.WorkingDirectory }}/results/coverage-unit-tests-opencover.xml" "-targetdir:${{ parameters.WorkingDirectory }}/results" "-reporttypes:Cobertura"
+    displayName: 'dotnet test'
+    failOnStderr: true
+{{< /codeblock >}}
+
+Logo após a implementação dos yamls de teste será possivel executar os testes na pipeline azure, primeiramente será necessário criar uma nova pipeline na Azure.
+
+![AzureCreate](/img/AzureCreatePipeline1.jpg)
+
+Adicionar a Origem de seu repositório.
+
+![AzureCreate](/img/AzureCreatePipeline2.jpg)
+
+E configurar sua pipeline com o path da localização do seu yaml
+
+![AzureCreate](/img/AzureCreatePipeline3.jpg)
+
+Path.
+![AzureCreate](/img/AzureCreatePipeline4.jpg)
+
+E finalmente executar a sua pipeline com os testes de integração
+![AzureTests](/img/AzureTests.jpeg)
