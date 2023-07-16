@@ -354,7 +354,6 @@ namespace Registration.UserRegistrationEnterpriseExample.Tests;
 
 public static class TestIntegrationDatabaseManager
 {
-    // Faz o Rebuild de nossa database
     public static void RebuildIntegrationDatabase(IServiceProvider serviceProvider)
     {
         var databaseContext = serviceProvider.GetService<DatabaseContext>();
